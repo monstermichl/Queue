@@ -6,7 +6,7 @@ Include Queue.c, Queue.h and QueueCfg.h into your project. To use the module's f
 
 Each queue is stored as a separate struct which must be allocated in RAM before it's passed to the *Queue_Init* function. *Queue_Init* does **NOT** reserve space on the heap for the queue itself. However, each call of *Queue_Enqueue* allocates and each call to *Queue_Dequeue* frees memory on the heap.
 
-For further documentation please refer to the generated Doxygen documentation.
+For further documentation please refer to the generated Doxygen documentation (https://github.com/monstermichl/Queue).
 
 ```c
 #include <string.h>

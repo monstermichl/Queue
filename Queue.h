@@ -4,6 +4,7 @@
  * @brief Queue module interface declaration.
  * @version 1.0
  * @date 2022-09-06
+ * @see https://github.com/monstermichl/Queue
  */
 
 #ifndef QUEUE_H
