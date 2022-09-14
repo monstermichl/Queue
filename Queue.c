@@ -68,6 +68,7 @@ static bool Queue_DequeueInternal(Queue_QueueStruct *queuePtr, void* dataPtr)
             free(tmpQueueNodeTmpPtr);
 
             queuePtr->count--;
+            result = true;
         }
     }
     return result;
