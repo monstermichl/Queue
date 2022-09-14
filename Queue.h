@@ -12,6 +12,10 @@
 
 #include "QueueCfg.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // ---------------------- defines ---------------------------------------------------------
 
 // ---------------------- types -----------------------------------------------------------
@@ -149,5 +153,9 @@ extern bool Queue_Dequeue(Queue_QueueStruct *queuePtr, void* dataPtr);
 extern bool Queue_Purge(Queue_QueueStruct *queuePtr);
 
 // ---------------------- function implementations ----------------------------------------
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
