@@ -7,4 +7,9 @@
  * @see https://github.com/monstermichl/Queue
  */
 
+#ifndef C_QUEUE_CFG_HEADER
+#define C_QUEUE_CFG_HEADER
+
 #define ONE_SIZE_TO_RULE_THEM_ALL (0u) /* If this is set to anything but 0, the size for each element can only be set when the queue instance is initialized. */
+
+#endif
