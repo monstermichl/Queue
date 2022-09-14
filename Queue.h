@@ -7,8 +7,8 @@
  * @see https://github.com/monstermichl/Queue
  */
 
-#ifndef QUEUE_H
-#define QUEUE_H
+#ifndef C_QUEUE_HEADER
+#define C_QUEUE_HEADER
 
 #include "QueueCfg.h"
 
