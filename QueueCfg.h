@@ -2,7 +2,7 @@
  * @file QueueCfg.h
  * @author Michel Vouillarmet
  * @brief Queue module configuration file.
- * @version 1.0
+ * @version 1.1
  * @date 2022-12-06
  * @see https://github.com/monstermichl/Queue
  */
