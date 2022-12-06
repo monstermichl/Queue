@@ -2,8 +2,8 @@
  * @file Queue.c
  * @author Michel Vouillarmet
  * @brief Queue module implementation.
- * @version 1.0
- * @date 2022-09-06
+ * @version 1.1
+ * @date 2022-12-06
  * @see https://github.com/monstermichl/Queue
  */
 
@@ -14,6 +14,20 @@
 #include "Queue.h"
 
 // ---------------------- defines ---------------------------------------------------------
+#if QUEUE_THREAD_SAFE
+#define QUEUE_CHANGE_LOCK(queuePtr, lock) queuePtr->inUse = lock
+#define QUEUE_WAIT_FOR_MUTEX(queuePtr) while (queuePtr->inUse)
+# if QUEUE_LOCK_CALLBACK
+# define QUEUE_RESERVE_MUTEX(queuePtr) QUEUE_CHANGE_LOCK(queuePtr, true); Queue_CallCallback(queuePtr)
+# else
+# define QUEUE_RESERVE_MUTEX(queuePtr) QUEUE_CHANGE_LOCK(queuePtr, true)
+# endif
+# if QUEUE_UNLOCK_CALLBACK
+# define QUEUE_FREE_MUTEX(queuePtr) QUEUE_CHANGE_LOCK(queuePtr, false); Queue_CallCallback(queuePtr)
+# else
+# define QUEUE_FREE_MUTEX(queuePtr) QUEUE_CHANGE_LOCK(queuePtr, false)
+# endif
+#endif
 
 // ---------------------- types -----------------------------------------------------------
 
@@ -22,9 +36,32 @@
 // ---------------------- variables -------------------------------------------------------
 
 // ---------------------- function declarations -------------------------------------------
+#if QUEUE_THREAD_SAFE && (QUEUE_LOCK_CALLBACK || QUEUE_UNLOCK_CALLBACK)
+static void Queue_CallCallback(Queue_QueueStruct *queuePtr);
+#endif
 static bool Queue_DequeueInternal(Queue_QueueStruct *queuePtr, void* dataPtr);
 
 // ---------------------- function implementations ----------------------------------------
+#if QUEUE_THREAD_SAFE && (QUEUE_LOCK_CALLBACK || QUEUE_UNLOCK_CALLBACK)
+static void Queue_CallCallback(Queue_QueueStruct *queuePtr)
+{
+    if (queuePtr != NULL)
+    {
+# if QUEUE_LOCK_CALLBACK
+        if (queuePtr->inUse && (queuePtr->lockCb != NULL))
+        {
+            queuePtr->lockCb(queuePtr);
+        }
+# endif
+# if QUEUE_UNLOCK_CALLBACK
+        if (!queuePtr->inUse && (queuePtr->unlockCb != NULL))
+        {
+            queuePtr->unlockCb(queuePtr);
+        }
+# endif
+    }
+}
+#endif
 
 static bool Queue_DequeueInternal(Queue_QueueStruct *queuePtr, void* dataPtr)
 {
@@ -45,7 +82,7 @@ static bool Queue_DequeueInternal(Queue_QueueStruct *queuePtr, void* dataPtr)
             {
                 size_t elementSizeTemp;
                 /* Use element size based on QueueCfg.h configuration. */
-#if ONE_SIZE_TO_RULE_THEM_ALL
+#if QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
                 elementSizeTemp = queuePtr->elementSize;
 #else
                 elementSizeTemp = tmpQueueNodeTmpPtr->elementSize;
@@ -68,7 +105,6 @@ static bool Queue_DequeueInternal(Queue_QueueStruct *queuePtr, void* dataPtr)
             free(tmpQueueNodeTmpPtr);
 
             queuePtr->count--;
-            result = true;
         }
     }
     return result;
@@ -76,7 +112,7 @@ static bool Queue_DequeueInternal(Queue_QueueStruct *queuePtr, void* dataPtr)
 
 // ---------------------------------------------------------------------------------------
 
-#if ONE_SIZE_TO_RULE_THEM_ALL
+#if QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
 bool Queue_Init(Queue_QueueStruct *queuePtr, size_t elementSize)
 #else
 bool Queue_Init(Queue_QueueStruct *queuePtr)
@@ -90,8 +126,17 @@ bool Queue_Init(Queue_QueueStruct *queuePtr)
         queuePtr->count = 0;
         queuePtr->head = NULL;
         queuePtr->tail = NULL;
-#if ONE_SIZE_TO_RULE_THEM_ALL
+#if QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
         queuePtr->elementSize = elementSize;
+#endif
+#if QUEUE_THREAD_SAFE
+        queuePtr->inUse = false;
+# if QUEUE_LOCK_CALLBACK
+        queuePtr->lockCb = NULL;
+# endif
+# if QUEUE_UNLOCK_CALLBACK
+        queuePtr->unlockCb = NULL;
+# endif
 #endif
     }
     return ok;
@@ -116,7 +161,7 @@ bool Queue_IsEmpty(Queue_QueueStruct *queuePtr)
 
 // ---------------------------------------------------------------------------------------
 
-#if !ONE_SIZE_TO_RULE_THEM_ALL
+#if !QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
 size_t Queue_NextElementSize(Queue_QueueStruct *queuePtr)
 {
     size_t size = 0;
@@ -131,7 +176,7 @@ size_t Queue_NextElementSize(Queue_QueueStruct *queuePtr)
 
 // ---------------------------------------------------------------------------------------
 
-#if ONE_SIZE_TO_RULE_THEM_ALL
+#if QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
 bool Queue_Enqueue(Queue_QueueStruct* queuePtr, const void* dataPtr)
 #else
 bool Queue_Enqueue(Queue_QueueStruct* queuePtr, const void* dataPtr, const size_t elementSize)
@@ -141,6 +186,10 @@ bool Queue_Enqueue(Queue_QueueStruct* queuePtr, const void* dataPtr, const size_
 
     if ((queuePtr != NULL) && (dataPtr != NULL))
     {
+#if QUEUE_THREAD_SAFE
+        QUEUE_WAIT_FOR_MUTEX(queuePtr);
+        QUEUE_RESERVE_MUTEX(queuePtr);
+#endif
         Queue_QueueEntryStruct* queueNodeTmpPtr = malloc(sizeof(Queue_QueueEntryStruct)); /* Reserve memory for a new queue entry. */
 
         if (queueNodeTmpPtr != NULL)
@@ -148,7 +197,7 @@ bool Queue_Enqueue(Queue_QueueStruct* queuePtr, const void* dataPtr, const size_
             size_t elementSizeTemp;
 
             /* Use element size based on QueueCfg.h configuration */
-#if ONE_SIZE_TO_RULE_THEM_ALL
+#if QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
             elementSizeTemp = queuePtr->elementSize;
 #else
             elementSizeTemp = elementSize;
@@ -182,6 +231,9 @@ bool Queue_Enqueue(Queue_QueueStruct* queuePtr, const void* dataPtr, const size_
                 free(queueNodeTmpPtr);
             }
         }
+#if QUEUE_THREAD_SAFE
+        QUEUE_FREE_MUTEX(queuePtr);
+#endif
     }
     return result;
 }
@@ -194,7 +246,14 @@ bool Queue_Dequeue(Queue_QueueStruct *queuePtr, void* dataPtr)
 
     if (dataPtr != NULL)
     {
+#if QUEUE_THREAD_SAFE
+        QUEUE_WAIT_FOR_MUTEX(queuePtr);
+        QUEUE_RESERVE_MUTEX(queuePtr);
+#endif
         result = Queue_DequeueInternal(queuePtr, dataPtr);
+#if QUEUE_THREAD_SAFE
+        QUEUE_FREE_MUTEX(queuePtr);
+#endif
     }
     return result;
 }
