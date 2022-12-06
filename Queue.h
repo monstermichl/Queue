@@ -2,41 +2,55 @@
  * @file Queue.h
  * @author Michel Vouillarmet
  * @brief Queue module interface declaration.
- * @version 1.0
- * @date 2022-09-06
+ * @version 1.1
+ * @date 2022-12-06
  * @see https://github.com/monstermichl/Queue
  */
 
-#ifndef C_QUEUE_HEADER
-#define C_QUEUE_HEADER
+#ifndef QUEUE_H
+#define QUEUE_H
 
 #include "QueueCfg.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // ---------------------- defines ---------------------------------------------------------
 
 // ---------------------- types -----------------------------------------------------------
+struct Queue_QueueStruct;
+
+#if QUEUE_LOCK_CALLBACK
+typedef void (*Queue_CallbackLock)(struct Queue_QueueStruct *queuePtr);
+#endif
+#if QUEUE_UNLOCK_CALLBACK
+typedef void (*Queue_CallbackUnlock)(struct Queue_QueueStruct *queuePtr);
+#endif
+
 typedef struct Queue_QueueEntryStruct
 {
     struct Queue_QueueEntryStruct* next;
-#if !ONE_SIZE_TO_RULE_THEM_ALL
+#if !QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
     size_t elementSize;
 #endif
     void* data;
 }
 Queue_QueueEntryStruct;
 
-typedef struct
+typedef struct Queue_QueueStruct
 {
     int count;
-#if ONE_SIZE_TO_RULE_THEM_ALL
+#if QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
     size_t elementSize;
 #endif
-    Queue_QueueEntryStruct* head;
-    Queue_QueueEntryStruct* tail;
+#if QUEUE_THREAD_SAFE
+    bool inUse;
+# if QUEUE_LOCK_CALLBACK
+    Queue_CallbackLock lockCb; /**< If needed, must be set directly in the struct after the queue has been initialized. */
+# endif
+# if QUEUE_UNLOCK_CALLBACK
+    Queue_CallbackLock unlockCb; /**< If needed, must be set directly in the struct after the queue has been initialized. */
+# endif
+#endif
+    Queue_QueueEntryStruct *head;
+    Queue_QueueEntryStruct *tail;
 }
 Queue_QueueStruct;
 
@@ -46,7 +60,7 @@ Queue_QueueStruct;
 
 // ---------------------- function declarations -------------------------------------------
 
-#if ONE_SIZE_TO_RULE_THEM_ALL
+#if QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
 /**
  * @brief Initializes a queue.
  * 
@@ -88,7 +102,7 @@ extern size_t Queue_Length(Queue_QueueStruct *queuePtr);
  */
 extern bool Queue_IsEmpty(Queue_QueueStruct *queuePtr);
 
-#if !ONE_SIZE_TO_RULE_THEM_ALL
+#if !QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
 /**
  * @brief Gets the element size of the next element in the queue.
  * 
@@ -99,7 +113,7 @@ extern bool Queue_IsEmpty(Queue_QueueStruct *queuePtr);
 extern size_t Queue_NextElementSize(Queue_QueueStruct *queuePtr);
 #endif
 
-#if ONE_SIZE_TO_RULE_THEM_ALL
+#if QUEUE_ONE_SIZE_TO_RULE_THEM_ALL
 /**
  * @brief Inserts a new element into a queue. CAUTION: Queue_Enqueue only copies the
  *        provided data structure. If the data structure contains pointers to external
@@ -153,9 +167,5 @@ extern bool Queue_Dequeue(Queue_QueueStruct *queuePtr, void* dataPtr);
 extern bool Queue_Purge(Queue_QueueStruct *queuePtr);
 
 // ---------------------- function implementations ----------------------------------------
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
